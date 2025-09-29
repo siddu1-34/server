@@ -12,7 +12,7 @@ const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
-// Rooms dictionary: roomId -> [socketIds]
+// Rooms dictionary
 const rooms = {};
 
 io.on("connection", (socket) => {
@@ -29,19 +29,24 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("new-participant", socket.id);
   });
 
-  // Relay WebRTC signaling messages
+  // Relay WebRTC signaling
   socket.on("signal", (data) => {
     const { roomId, to } = data;
+
     if (to) {
+      // Direct message
       io.to(to).emit("signal", { ...data, from: socket.id });
+    } else if (roomId) {
+      // Broadcast to all in room except sender
+      socket.to(roomId).emit("signal", { ...data, from: socket.id });
     }
   });
 
+  // Handle disconnect
   socket.on("disconnect", () => {
     console.log(`❌ User disconnected: ${socket.id}`);
-    // Remove from rooms
     for (const roomId in rooms) {
-      rooms[roomId] = rooms[roomId].filter(id => id !== socket.id);
+      rooms[roomId] = rooms[roomId].filter((id) => id !== socket.id);
       if (rooms[roomId].length === 0) delete rooms[roomId];
     }
   });
